@@ -1,0 +1,912 @@
+<bar protocol-version="0" min-app-version="0.3.0" id="tempmail" title="TempMail.Best" version="0.1.0" description="Create a temporary inbox, read incoming mail, and copy verification codes." icon="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Crect%20x%3D%221%22%20y%3D%221%22%20width%3D%2222%22%20height%3D%2222%22%20rx%3D%226%22%20fill%3D%22%2309090b%22%20stroke%3D%22%2327272a%22%20stroke-width%3D%221%22%2F%3E%3Cg%20transform%3D%22translate(5%205)%20scale(0.583)%22%3E%3Cpath%20fill%3D%22%23ffffff%22%20d%3D%22M3%203h18a1%201%200%200%201%201%201v16a1%201%200%200%201-1%201H3a1%201%200%200%201-1-1V4a1%201%200%200%201%201-1m17%204.238l-7.928%207.1L4%207.216V19h16zM4.511%205l7.55%206.662L19.502%205z%22%2F%3E%3C%2Fg%3E%3Ccircle%20cx%3D%2219.5%22%20cy%3D%2219.5%22%20r%3D%223%22%20fill%3D%22%235073ee%22%20stroke%3D%22%2309090b%22%20stroke-width%3D%221.5%22%2F%3E%3C%2Fsvg%3E" category="utilities" refresh="0" material="solid" open-mode="window" window-style="standard" homepage="https://github.com/miantiao-me/tempmail.bar" license="Apache-2.0">
+  <locale lang="zh-Hans" title="TempMail.Best" description="创建临时收件箱、阅读来信并一键复制验证码。" />
+  <permissions>
+    <network origin="https://tempmail.best" />
+  </permissions>
+  <inputs>
+    <input name="lang" type="select" label="Language" default="en">
+      <locale lang="zh-Hans" label="语言" />
+      <option value="en" label="English" />
+      <option value="zh" label="简体中文" />
+    </input>
+    <input name="mailboxToken" type="secret" label="Mailbox session (managed)" help="Managed automatically; no manual token needed">
+      <locale lang="zh-Hans" label="邮箱会话（自动管理）" help="由创建流程自动保存，无需手动填写" />
+    </input>
+    <input name="notify" type="bool" label="New mail alerts" default="true" help="Alert on new mail with the detected code">
+      <locale lang="zh-Hans" label="新邮件通知" help="收到新邮件时提醒，识别出的验证码直接显示在通知里" />
+    </input>
+  </inputs>
+  <docs><![CDATA[Create a 10-minute or 1-hour temporary inbox from your menu bar — receive-only, with no API key required.
+
+How to use
+1. Pick 10 minutes or 1 hour and click Create inbox.
+2. Copy the address; incoming messages appear automatically (refreshes every 15s while open, 60s when closed).
+3. Copy detected verification codes in one click from the top banner or new-mail notifications.
+
+Privacy & limits
+- Messages are rendered as plain text with no remote images or scripts.
+- Session credentials stay in your OS Keychain; message bodies stay in memory only.
+- Polling stops automatically when the inbox expires.]]>
+    <locale lang="zh-Hans"><![CDATA[从菜单栏一键创建 10 分钟或 1 小时临时邮箱，只收件，无需 API Key。
+
+使用方式
+1. 选择 10 分钟或 1 小时，点击「创建邮箱」。
+2. 复制地址即可收信，展开窗口每 15 秒刷新、收起每 60 秒刷新。
+3. 识别出的验证码会置顶显示，也可在新邮件通知中直接查看并一键复制。
+
+安全与限制
+- 来信转为原生纯文本显示，不执行脚本，不加载外部图片。
+- 邮箱会话安全保存在系统钥匙串中，邮件正文仅驻留内存。
+- 到期后自动停止轮询，删除或换新前均需二次确认。]]></locale>
+  </docs>
+  <script apis="shell clipboard localStorage crypto auth notification"><![CDATA[/*!
+Icons from Remix Icon, published in @iconify-json/ri 1.2.10 under Apache-2.0.
+https://github.com/cyberalien/RemixIcon/blob/master/License
+*/
+// src/shared/icons.ts
+var e = {
+	mail: "<path fill=\"currentColor\" d=\"M3 3h18a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1m17 4.238l-7.928 7.1L4 7.216V19h16zM4.511 5l7.55 6.662L19.502 5z\"/>",
+	refresh: "<path fill=\"currentColor\" d=\"M5.463 4.433A9.96 9.96 0 0 1 12 2c5.523 0 10 4.477 10 10c0 2.136-.67 4.116-1.81 5.74L17 12h3A8 8 0 0 0 6.46 6.228zm13.074 15.134A9.96 9.96 0 0 1 12 22C6.477 22 2 17.523 2 12c0-2.136.67-4.116 1.81-5.74L7 12H4a8 8 0 0 0 13.54 5.772z\"/>",
+	trash: "<path fill=\"currentColor\" d=\"M17 6h5v2h-2v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8H2V6h5V3a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1zm1 2H6v12h12zm-9 3h2v6H9zm4 0h2v6h-2zM9 4v2h6V4z\"/>",
+	external: "<path fill=\"currentColor\" d=\"M10 6v2H5v11h11v-5h2v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zm11-3v8h-2V6.413l-7.793 7.794l-1.414-1.414L17.585 5H13V3z\"/>",
+	copy: "<path fill=\"currentColor\" d=\"M7 6V3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-3v3c0 .552-.45 1-1.007 1H4.007A1 1 0 0 1 3 21l.003-14c0-.552.45-1 1.006-1zM5.002 8L5 20h10V8zM9 6h8v10h2V4H9z\"/>",
+	key: "<path fill=\"currentColor\" d=\"m10.758 11.828l7.849-7.849l1.414 1.414l-1.414 1.415l2.474 2.474l-1.414 1.415l-2.475-2.475l-1.414 1.414l2.121 2.121l-1.414 1.415l-2.121-2.122l-2.192 2.192a5.002 5.002 0 0 1-7.708 6.293a5 5 0 0 1 6.294-7.707m-.637 6.293A3 3 0 1 0 5.88 13.88a3 3 0 0 0 4.242 4.242\"/>",
+	prev: "<path fill=\"currentColor\" d=\"m8 11.333l10.223-6.815a.5.5 0 0 1 .777.416v14.132a.5.5 0 0 1-.777.416L8 12.667V19a1 1 0 1 1-2 0V5a1 1 0 1 1 2 0z\"/>",
+	next: "<path fill=\"currentColor\" d=\"M16 12.667L5.777 19.482A.5.5 0 0 1 5 19.066V4.934a.5.5 0 0 1 .777-.416L16 11.333V5a1 1 0 1 1 2 0v14a1 1 0 1 1-2 0z\"/>"
+};
+// src/shared/lang.ts
+function t(e) {
+	return e.inputs.lang === "zh" ? "zh" : "en";
+}
+function n(e, t, n) {
+	return e === "zh" ? t : n;
+}
+// src/shared/format.ts
+function r(e, t) {
+	if (!e) return n(t, "从未", "never");
+	let r = Math.round((e - Date.now()) / 1e3), i = Math.abs(r), a = r > 0;
+	if (i < 45) return n(t, "刚刚", "just now");
+	let [o, s, c] = i < 3600 ? [
+		Math.round(i / 60),
+		"分钟",
+		"min"
+	] : i < 86400 ? [
+		Math.round(i / 3600),
+		"小时",
+		"hr"
+	] : [
+		Math.round(i / 86400),
+		"天",
+		"days"
+	];
+	return t === "zh" ? `${o} ${s}${a ? "后" : "前"}` : `${o} ${c} ${a ? "from now" : "ago"}`;
+}
+var i = [
+	"Jan",
+	"Feb",
+	"Mar",
+	"Apr",
+	"May",
+	"Jun",
+	"Jul",
+	"Aug",
+	"Sep",
+	"Oct",
+	"Nov",
+	"Dec"
+];
+function a(e, t) {
+	let r = new Date(e), a = `${String(r.getHours()).padStart(2, "0")}:${String(r.getMinutes()).padStart(2, "0")}`;
+	return r.toDateString() === (/* @__PURE__ */ new Date()).toDateString() ? a : n(t, `${r.getMonth() + 1}月${r.getDate()}日 ${a}`, `${i[r.getMonth()]} ${r.getDate()}, ${a}`);
+}
+// src/shared/storage.ts
+function o(e, t) {
+	try {
+		let n = localStorage.getItem(e);
+		return n ? JSON.parse(n) ?? t : t;
+	} catch {
+		return t;
+	}
+}
+function s(e, t) {
+	try {
+		localStorage.setItem(e, JSON.stringify(t));
+	} catch {}
+}
+// src/shared/kit.ts
+function c(e, t, ...n) {
+	return {
+		type: e,
+		props: t ?? {},
+		children: n.flat().filter((e) => e != null && e !== !1)
+	};
+}
+function l(e, t = {}) {
+	return c("Text", {
+		text: e,
+		...t
+	});
+}
+var u = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"currentColor\">";
+function d(t) {
+	return u + e[t] + "</svg>";
+}
+function f(e, t = 14, n) {
+	return c("Icon", {
+		svg: d(e),
+		width: t,
+		height: t,
+		...n ? { textColor: n } : {}
+	});
+}
+function p(t, n, r = 18) {
+	let i = `<svg xmlns="http://www.w3.org/2000/svg" width="${r}" height="${r}" viewBox="0 0 24 24">` + e[t].replaceAll("currentColor", n) + "</svg>";
+	return "data:image/svg+xml," + encodeURIComponent(i);
+}
+function m(e) {
+	return e instanceof Error ? e.message : String(e);
+}
+// src/shared/http.ts
+async function h(e, t = {}, n = 12e3) {
+	t.signal?.throwIfAborted();
+	let r = new AbortController(), i = () => r.abort(t.signal?.reason);
+	t.signal?.addEventListener("abort", i, { once: !0 });
+	let a = setTimeout(() => r.abort(), n);
+	try {
+		let n = await fetch(e, {
+			...t,
+			signal: r.signal
+		}), i = await n.arrayBuffer();
+		return new Response(i.byteLength ? i : null, {
+			status: n.status,
+			statusText: n.statusText,
+			headers: n.headers
+		});
+	} finally {
+		clearTimeout(a), t.signal?.removeEventListener("abort", i);
+	}
+}
+// src/shared/service.ts
+var g = class extends Error {
+	status;
+	retryAt;
+	constructor(e, t, n = 0) {
+		super(e), this.status = t, this.retryAt = n;
+	}
+};
+function ee(e) {
+	if (!e) return 0;
+	let t = Number(e);
+	return Number.isFinite(t) && t >= 0 ? Date.now() + t * 1e3 : Date.parse(e) || 0;
+}
+async function _(e, t = {}, r = "zh") {
+	let i = await h(e, {
+		...t,
+		redirect: "error"
+	});
+	if (!i.ok) throw new g(`${n(r, ...{
+		400: ["请求无效，请检查输入", "Invalid input"],
+		401: ["凭据失效，请检查设置", "Credentials are invalid"],
+		402: ["积分不足", "Insufficient credits"],
+		403: ["没有访问权限", "Access denied"],
+		404: ["内容已不可用", "Content is unavailable"],
+		429: ["请求频繁，请稍后重试", "Rate limited; try later"],
+		503: ["服务暂不可用", "Service temporarily unavailable"]
+	}[i.status] ?? ["请求失败", "Request failed"])} (${i.status})`, i.status, ee(i.headers.get("Retry-After")));
+	return i;
+}
+async function v(e, t = {}, r = "zh") {
+	let i = await _(e, t, r);
+	try {
+		return await i.json();
+	} catch {
+		throw Error(n(r, "服务返回了无效数据", "Invalid service response"));
+	}
+}
+async function y(e, t) {
+	try {
+		await navigator.clipboard.writeText(e), $metrix.toast(n(t, "已复制", "Copied"));
+	} catch {
+		$metrix.toast(n(t, "复制失败，请重试", "Copy failed; try again"));
+	}
+}
+// src/pow.ts
+function b(e, t) {
+	let n = 2166136261;
+	for (let t = 0; t < e.length; t++) n ^= e.charCodeAt(t), n += (n << 1) + (n << 4) + (n << 7) + (n << 8) + (n << 24);
+	n >>>= 0;
+	let r = "";
+	for (; r.length < t;) n ^= n << 13, n ^= n >>> 17, n ^= n << 5, n >>>= 0, r += n.toString(16).padStart(8, "0");
+	return r.slice(0, t);
+}
+async function x(e, t) {
+	let r = t.lang ?? "en", i = e;
+	if (!i || i.format !== void 0 && i.format !== 1 || Object.hasOwn(i, "instrumentation")) throw Error(n(r, "暂不支持此计算挑战", "Unsupported challenge"));
+	let { c: a, s: o, d: s } = i.challenge ?? {};
+	if (typeof i.token != "string" || ![
+		a,
+		o,
+		s
+	].every(Number.isInteger) || a < 1 || a > 1e3 || o < 1 || o > 256 || s < 1 || s > 16 || !Number.isFinite(i.expires)) throw Error(n(r, "计算挑战格式无效", "Invalid challenge"));
+	let c = Math.min(i.expires, Date.now() + (t.budgetMs ?? 24e4)), l = new TextEncoder(), u = Array.from({ length: a }, () => 0), d = 0, f = 0, p = !1, m = () => {
+		if (t.signal.throwIfAborted(), p) throw Error(n(r, "计算已停止", "Stopped"));
+		if (Date.now() >= c) throw Error(n(r, "计算挑战已过期或超时，请重试", "Challenge expired or timed out"));
+	};
+	try {
+		return await Promise.all(Array.from({ length: Math.min(8, a) }, async () => {
+			for (; d < a;) {
+				let e = d++, n = b(`${i.token}${e + 1}`, o), r = Array.from(b(`${i.token}${e + 1}d`, s), (e) => Number.parseInt(e, 16));
+				for (let i = 0; i < 2 ** 53 - 1; i++) {
+					m();
+					let o = new Uint8Array(await crypto.subtle.digest("SHA-256", l.encode(`${n}${i}`)));
+					if (r.every((e, t) => (o[t >> 1] >> (t % 2 ? 0 : 4) & 15) === e)) {
+						m(), u[e] = i, t.onProgress?.(++f / a);
+						break;
+					}
+				}
+			}
+		})), u;
+	} catch (e) {
+		throw p = !0, e;
+	}
+}
+// src/api.ts
+var S = "https://tempmail.best/api/agent/v1", te = /^[^@\s]+@[^@\s]+$/;
+function C(e) {
+	let t = e;
+	return !!(t && typeof t.email == "string" && te.test(t.email) && typeof t.token == "string" && t.token && Number.isSafeInteger(t.expiresAt) && (t.lifetime === "10m" || t.lifetime === "1h"));
+}
+function w(e, t) {
+	return t.throwIfAborted(), new Promise((n, r) => {
+		let i = () => {
+			clearTimeout(a), r(t.reason);
+		}, a = setTimeout(() => {
+			t.removeEventListener("abort", i), n();
+		}, e);
+		t.addEventListener("abort", i, { once: !0 });
+	});
+}
+async function T(e, t, r, i, a) {
+	i("preparing");
+	let o = await v(`${S}/domains`, { signal: r }, t);
+	if (!Array.isArray(o.domains) || !o.domains.includes(o.defaultDomain)) throw Error(n(t, "邮箱域名数据无效", "Invalid mailbox domains"));
+	let s = `${S}/cap/${e}/${encodeURIComponent(o.defaultDomain)}`, c = await v(`${s}/challenge`, {
+		method: "POST",
+		signal: r
+	}, t);
+	if (c.success !== !0 || typeof c.email != "string" || !c.email.endsWith(`@${o.defaultDomain}`)) throw Error(n(t, "邮箱挑战无效", "Invalid mailbox challenge"));
+	i("computing");
+	let l = await x(c, {
+		signal: r,
+		onProgress: a,
+		lang: t
+	});
+	r.throwIfAborted(), i("creating");
+	let u = JSON.stringify({
+		token: c.token,
+		solutions: l
+	}), d = 0;
+	for (let i = 0; i < 3; i++) {
+		r.throwIfAborted();
+		try {
+			let i = await v(`${s}/redeem`, {
+				method: "POST",
+				signal: r,
+				headers: { "Content-Type": "application/json" },
+				body: u
+			}, t), a = {
+				email: i.email,
+				token: i.token,
+				expiresAt: i.expiresAt,
+				lifetime: e
+			};
+			if (i.success !== !0 || !C(a) || a.email !== c.email || a.expiresAt <= Date.now()) throw Error(n(t, "邮箱创建响应无效", "Invalid mailbox response"));
+			return a;
+		} catch (e) {
+			if (!(e instanceof g) || ![429, 503].includes(e.status) || i === 2) throw e;
+			let t = e.retryAt ? Math.max(0, e.retryAt - Date.now()) : e.status === 503 ? 1e3 : -1;
+			if (t < 0 || t > 6e4 || d + t > 12e4 || Date.now() + t >= c.expires) throw e;
+			d += t, await w(t, r);
+		}
+	}
+	throw Error(n(t, "邮箱创建失败", "Mailbox creation failed"));
+}
+function E(e, t = "") {
+	return `${S}/mailboxes/${encodeURIComponent(e.email)}${t}`;
+}
+var D = (e) => ({ Authorization: `Bearer ${e.token}` });
+async function O(e, t, r) {
+	let i = await v(E(e, "/messages"), {
+		signal: r,
+		headers: D(e)
+	}, t);
+	if (!Array.isArray(i) || i.some((t) => !t || typeof t.id != "string" || t.to !== e.email)) throw Error(n(t, "收件数据不匹配", "Mailbox response mismatch"));
+	return i.slice(0, 20);
+}
+async function ne(e, t, r, i) {
+	let a = await v(E(e, `/messages/${encodeURIComponent(t)}`), {
+		signal: i,
+		headers: D(e)
+	}, r);
+	if (a.id !== t || a.to !== e.email) throw Error(n(r, "邮件数据不匹配", "Message response mismatch"));
+	return a;
+}
+async function k(e, t, n) {
+	await _(E(e), {
+		method: "DELETE",
+		signal: n,
+		headers: D(e)
+	}, t);
+}
+function A(e) {
+	let t = {
+		amp: "&",
+		lt: "<",
+		gt: ">",
+		quot: "\"",
+		apos: "'",
+		nbsp: " "
+	};
+	return e.replace(/&(#x[\da-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi, (e, n) => {
+		if (!n.startsWith("#")) return t[n.toLowerCase()] ?? e;
+		let r = n[1]?.toLowerCase() === "x", i = Number.parseInt(n.slice(r ? 2 : 1), r ? 16 : 10);
+		return i >= 0 && i <= 1114111 ? String.fromCodePoint(i) : e;
+	});
+}
+function re(e) {
+	let t = /* @__PURE__ */ new Set(), n = (e.html || "").replace(/<(script|style|head)\b[^>]*>[\s\S]*?<\/\1>/gi, "").replace(/<!--[\s\S]*?-->/g, "").replace(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi, (e, n, r) => {
+		let i = /(?:^|\s)href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>`]+))/i.exec(n), a = A(i?.[1] || i?.[2] || i?.[3] || "").trim();
+		return !/^(?:https?:\/\/|mailto:)/i.test(a) || (t.add(a), A(r.replace(/<[^>]*>/g, "")).trim() === a) ? r : `${r}\n${a.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}\n`;
+	});
+	if (typeof e.text == "string" && e.text.trim().length) {
+		let n = e.text;
+		return [n, ...[...t].filter((e) => !n.includes(e))].join("\n");
+	}
+	return A(n.replace(/<br\s*\/?>|<\/(?:p|div|li|tr|h[1-6])>/gi, "\n").replace(/<[^>]*>/g, "")).replace(/\n{3,}/g, "\n\n").trim();
+}
+function j(e) {
+	return [...new Set([...e.matchAll(/(?:验证码|verification\s+code|one[- ]time\s+(?:code|password)|\bOTP\b|\bcode\b)[^\d\n]{0,32}(\d{4,8})(?!\d)/gi)].map((e) => e[1]))].slice(0, 5);
+}
+function M(e, t) {
+	let n = (t) => t > 0 && /[\uDC00-\uDFFF]/.test(e[t] ?? "") ? t - 1 : t;
+	return e.slice(n(t * 16e3), n((t + 1) * 16e3));
+}
+// src/state.ts
+var N = "tempmail:mailbox:v1", P = "mailboxToken", F = new class {
+	lang = "zh";
+	lifetime = "10m";
+	session = null;
+	phase = "idle";
+	progress = 0;
+	error = "";
+	detailError = "";
+	messages = [];
+	detail = null;
+	body = "";
+	bodyPage = 0;
+	candidateCodes = [];
+	selectedId = "";
+	readIds = /* @__PURE__ */ new Set();
+	loading = !1;
+	detailLoading = !1;
+	confirm = "";
+	expanded = !1;
+	active = !1;
+	updatedAt = 0;
+	notify = !0;
+	seen = /* @__PURE__ */ new Map();
+	restored = !1;
+	generation = 0;
+	readVersion = 0;
+	authFailed = !1;
+	blockedUntil = 0;
+	createBlockedUntil = 0;
+	expiredSecret = !1;
+	retired = null;
+	createAbort = null;
+	pollAbort = null;
+	detailAbort = null;
+	clock = null;
+	secretJob = Promise.resolve();
+	changeSecret(e) {
+		let t = this.secretJob.then(e);
+		return this.secretJob = t.catch(() => {}), t;
+	}
+	get busy() {
+		return [
+			"preparing",
+			"computing",
+			"creating",
+			"saving",
+			"deleting"
+		].includes(this.phase);
+	}
+	get unread() {
+		return this.messages.filter((e) => !this.readIds.has(e.id)).length;
+	}
+	get remaining() {
+		return this.session ? Math.max(0, Math.ceil((this.session.expiresAt - Date.now()) / 1e3)) : 0;
+	}
+	restore() {
+		if (this.restored) return;
+		this.restored = !0;
+		let e = "";
+		try {
+			e = $metrix.secret(P) || "";
+		} catch {
+			return;
+		}
+		if (e) try {
+			let t = JSON.parse(e);
+			if (!C(t)) throw Error("invalid session");
+			if (t.expiresAt <= Date.now()) {
+				this.phase = "expired", this.expiredSecret = !0;
+				return;
+			}
+			this.session = t, this.lifetime = t.lifetime, this.phase = "ready";
+			let n = o(N, null);
+			n?.email === t.email && Array.isArray(n.readIds) && (this.readIds = new Set(n.readIds.slice(0, 20)));
+		} catch {
+			this.error = n(this.lang, "会话凭据无效，请重新创建", "Invalid saved session; create a new inbox");
+		}
+	}
+	activate() {
+		this.active = !0, this.expiredSecret && (this.expiredSecret = !1, this.changeSecret(() => $metrix.deleteSecret(P)).catch(() => {})), this.planPoll(), $metrix.invalidate();
+	}
+	remember() {
+		this.session && s(N, {
+			email: this.session.email,
+			expiresAt: this.session.expiresAt,
+			readIds: [...this.readIds].slice(0, 20)
+		});
+	}
+	planPoll() {
+		if (!this.active) return;
+		let e = this.session && this.phase !== "save-error" && !this.authFailed ? Math.min(864e5, Math.max(this.expanded ? 15e3 : 6e4, this.blockedUntil - Date.now())) : null;
+		try {
+			$metrix.schedule(e);
+		} catch {}
+	}
+	setExpanded(e) {
+		this.expanded = e, this.clock && clearInterval(this.clock), this.clock = e ? setInterval(() => {
+			this.tick(), $metrix.invalidate();
+		}, 1e3) : null, this.tick(), this.planPoll(), e && Date.now() - this.updatedAt > 15e3 && this.refresh();
+	}
+	stop() {
+		this.active = !1, this.generation++, this.createAbort?.abort(), this.pollAbort?.abort(), this.detailAbort?.abort(), this.clock && clearInterval(this.clock), this.clock = null;
+	}
+	forget(e) {
+		this.generation++, this.pollAbort?.abort(), this.detailAbort?.abort(), this.session = null, this.messages = [], this.detail = null, this.body = "", this.candidateCodes = [], this.selectedId = "", this.readIds.clear(), this.loading = !1, this.detailLoading = !1, this.authFailed = !1, this.phase = e;
+		try {
+			localStorage.removeItem(N);
+		} catch {}
+		this.active && this.changeSecret(() => $metrix.deleteSecret(P)).catch(() => {
+			this.error = n(this.lang, "凭据清理失败", "Could not remove saved credentials"), $metrix.invalidate();
+		}), this.planPoll(), $metrix.invalidate();
+	}
+	tick() {
+		this.session && this.session.expiresAt <= Date.now() && !this.busy && this.forget("expired");
+	}
+	cancelCreate() {
+		["preparing", "computing"].includes(this.phase) && this.createAbort?.abort();
+	}
+	async create(e = !1) {
+		if (!this.active || this.busy || this.session && !e || Date.now() < this.createBlockedUntil) return;
+		let t = this.session, n = ++this.generation;
+		this.pollAbort?.abort(), this.detailAbort?.abort(), this.loading = !1, this.detailLoading = !1;
+		let r = new AbortController();
+		this.createAbort = r, this.phase = "preparing", this.progress = 0, this.error = "", $metrix.invalidate();
+		try {
+			let e = await T(this.lifetime, this.lang, r.signal, (e) => {
+				n === this.generation && (this.phase = e, $metrix.invalidate());
+			}, (e) => {
+				n === this.generation && (this.progress = e, $metrix.invalidate());
+			});
+			if (n !== this.generation || r.signal.aborted) return;
+			this.session = e, this.retired = t, this.messages = [], this.detail = null, this.body = "", this.candidateCodes = [], this.selectedId = "", this.readIds.clear(), this.authFailed = !1, await this.persist();
+		} catch (e) {
+			if (n !== this.generation) return;
+			this.phase = t ? "ready" : "idle", r.signal.aborted || this.failure(e, !1);
+		} finally {
+			n === this.generation && (this.createAbort = null, this.tick(), this.planPoll(), $metrix.invalidate());
+		}
+	}
+	async persist() {
+		let e = this.session, t = this.generation;
+		if (e && this.active) {
+			this.phase = "saving", $metrix.invalidate();
+			try {
+				let r = JSON.stringify(e);
+				if (new TextEncoder().encode(r).length > 2560) throw Error("too large");
+				if (await this.changeSecret(() => $metrix.setSecret(P, r)), t !== this.generation || e !== this.session) return;
+				this.remember(), this.phase = "ready", this.error = "";
+				let i = this.retired;
+				if (this.retired = null, i) try {
+					await k(i, this.lang);
+				} catch {
+					this.error = n(this.lang, "旧邮箱将按原时间到期", "Previous inbox will expire at its original time");
+				}
+			} catch {
+				t === this.generation && (this.phase = "save-error", this.error = n(this.lang, "会话尚未保存，请重试保存；关闭后可能丢失", "Session not saved; retry before closing"));
+			}
+			this.planPoll(), $metrix.invalidate();
+		}
+	}
+	async retrySave() {
+		this.phase === "save-error" && await this.persist();
+	}
+	failure(e, t = !0) {
+		if (this.error = m(e), e instanceof g && e.status === 429) {
+			let n = e.retryAt || Date.now() + 6e4;
+			t ? this.blockedUntil = n : this.createBlockedUntil = n;
+		}
+		t && e instanceof g && e.status === 401 && (this.authFailed = !0);
+	}
+	async refresh() {
+		this.restore(), this.tick();
+		let e = this.session;
+		if (!e || this.loading || this.busy || this.phase === "save-error" || Date.now() < this.blockedUntil) return;
+		let t = this.generation, n = new AbortController();
+		this.pollAbort = n, this.loading = !0, $metrix.invalidate();
+		try {
+			let r = await O(e, this.lang, n.signal);
+			if (t !== this.generation || n.signal.aborted || (this.tick(), e !== this.session)) return;
+			this.announce(e.email, r), this.messages = r, this.updatedAt = Date.now(), this.error = "", this.authFailed = !1, this.readIds = new Set([...this.readIds].filter((e) => r.some((t) => t.id === e))), this.remember();
+		} catch (e) {
+			t === this.generation && !n.signal.aborted && this.failure(e);
+		} finally {
+			t === this.generation && (this.loading = !1, this.planPoll(), $metrix.invalidate());
+		}
+	}
+	announce(e, t) {
+		let n = this.seen.get(e);
+		if (this.seen.set(e, new Set(t.map((e) => e.id))), n && this.notify && typeof Notification < "u") for (let e of t.filter((e) => !n.has(e.id)).slice(0, 3)) {
+			let t = j(`${e.subject ?? ""}\n${e.preview ?? ""}`)[0];
+			try {
+				new Notification(t ? `${this.lang === "zh" ? "验证码" : "Code"} ${t}` : e.subject || "TempMail.Best", {
+					body: e.from?.name || e.from?.address || "",
+					tag: `tempmail-${e.id}`
+				});
+			} catch {}
+		}
+	}
+	async readMessage(e) {
+		this.tick();
+		let t = this.session;
+		if (!t || this.busy || Date.now() < this.blockedUntil) return;
+		this.detailAbort?.abort();
+		let n = new AbortController();
+		this.detailAbort = n;
+		let r = this.generation, i = ++this.readVersion;
+		this.selectedId = e, this.detail = null, this.body = "", this.candidateCodes = [], this.bodyPage = 0, this.detailError = "", this.detailLoading = !0, $metrix.invalidate();
+		try {
+			let a = await ne(t, e, this.lang, n.signal);
+			if (r !== this.generation || i !== this.readVersion || n.signal.aborted || (this.tick(), t !== this.session)) return;
+			this.detail = a, this.body = re(a), this.candidateCodes = j(`${a.subject || ""}\n${this.body}`), this.readIds.add(e), this.remember();
+		} catch (e) {
+			r === this.generation && i === this.readVersion && !n.signal.aborted && (this.detailError = m(e), e instanceof g && [401, 429].includes(e.status) && (this.failure(e), this.planPoll()));
+		} finally {
+			r === this.generation && i === this.readVersion && (this.detailLoading = !1, $metrix.invalidate());
+		}
+	}
+	async confirmAction() {
+		let e = this.confirm;
+		if (this.confirm = "", !this.active || this.busy) return;
+		if (e === "replace") {
+			await this.create(!0);
+			return;
+		}
+		let t = this.session;
+		if (e !== "delete" || !t) return;
+		let n = this.generation, r = this.phase;
+		this.phase = "deleting", this.error = "", $metrix.invalidate();
+		try {
+			await k(t, this.lang), n === this.generation && this.forget("idle");
+		} catch (e) {
+			n === this.generation && (this.phase = r, this.failure(e), $metrix.invalidate());
+		}
+	}
+}(), I = "#5073ee", L = "#5073ee1a", R = "#5073ee4d", z = "#eab308", B = "#ef4444";
+function V(e = 28) {
+	let t = Math.round(e * .52), n = e >= 36 ? 9 : 7;
+	return c("Box", {
+		width: e,
+		height: e,
+		radius: Math.round(e * .25),
+		background: "#09090b",
+		borderWidth: 1,
+		borderColor: "border",
+		center: !0,
+		tw: "shrink-0"
+	}, f("mail", t, "#ffffff"), c("Box", {
+		absolute: !0,
+		top: e - n + 1,
+		left: e - n + 1,
+		width: n,
+		height: n,
+		radius: n / 2,
+		background: I,
+		borderWidth: 1.5,
+		borderColor: "background"
+	}));
+}
+// src/views.ts
+var H = (e, t) => n(F.lang, e, t), U = 16e3;
+function W(e, t, n = {}) {
+	let r = n.disabled ?? !1;
+	return c("ButtonBase", {
+		width: 28,
+		height: 28,
+		center: !0,
+		radius: 7,
+		label: n.tooltip ?? e,
+		disabled: r,
+		tooltip: n.tooltip,
+		tw: `shrink-0 ${r ? "opacity-30" : "cursor-pointer hover:bg-surfaceHover active:bg-surfacePressed focus-visible:bg-surfacePressed"}`,
+		...r ? {} : { onClick: t }
+	}, f(e, 14, "textMuted"));
+}
+function G() {
+	return c("Segmented", {
+		value: F.lifetime,
+		disabled: F.busy,
+		items: [{
+			label: H("10 分钟", "10 minutes"),
+			value: "10m"
+		}, {
+			label: H("1 小时", "1 hour"),
+			value: "1h"
+		}],
+		onChange: (e) => {
+			F.busy || (F.lifetime = e, $metrix.invalidate());
+		}
+	});
+}
+function K(e) {
+	return `${Math.floor(e / 60).toString().padStart(2, "0")}:${(e % 60).toString().padStart(2, "0")}`;
+}
+var q = {
+	preparing: ["准备中…", "Preparing…"],
+	computing: ["正在完成官方计算挑战…", "Solving the official challenge…"],
+	creating: ["正在创建邮箱…", "Creating inbox…"],
+	saving: ["正在保存会话…", "Saving session…"],
+	deleting: ["正在删除…", "Deleting…"]
+};
+function J() {
+	if (!F.session) return 0;
+	let e = F.session.lifetime === "1h" ? 3600 : 600;
+	return Math.max(0, Math.min(1, F.remaining / e));
+}
+function Y(e) {
+	return e < .15 ? B : e < .3 ? z : I;
+}
+function ie() {
+	let e = q[F.phase];
+	if (e) return {
+		text: H(...e),
+		colorClass: `text-[${I}]`
+	};
+	if (F.error) return {
+		text: F.error,
+		colorClass: `text-[${z}]`
+	};
+	if (F.phase === "expired") return {
+		text: H("邮箱已到期", "Inbox expired"),
+		colorClass: `text-[${z}]`
+	};
+	if (!F.session) return {
+		text: H("限时邮箱 · 只收件", "Temporary · receive only"),
+		colorClass: "text-textMuted"
+	};
+	let t = J(), n = t < .15 ? `text-[${B}]` : t < .3 ? `text-[${z}]` : "text-textMuted";
+	return {
+		text: `${H(`剩 ${K(F.remaining)}`, `${K(F.remaining)} left`)}${F.unread ? H(` · ${F.unread} 封未读`, ` · ${F.unread} unread`) : ""}`,
+		colorClass: n
+	};
+}
+function ae() {
+	let e = F.messages[0];
+	if (!e) return null;
+	let t = j(`${e.subject ?? ""}\n${e.preview ?? ""}`)[0];
+	return t ? {
+		code: t,
+		message: e
+	} : null;
+}
+function oe() {
+	let e = ie();
+	return c("Row", { tw: "items-center gap-2.5 px-4 pt-3 pb-2.5 shrink-0" }, V(28), c("Column", { tw: "flex-1 min-w-0 gap-0.5" }, l("TempMail.Best", { tw: "text-[14.5px] font-semibold leading-tight truncate text-text" }), l(e.text, { tw: `text-[11.5px] tabular-nums truncate ${e.colorClass}` })), W("refresh", () => void F.refresh(), {
+		tooltip: H("刷新收件箱", "Refresh inbox"),
+		disabled: !F.session || F.loading || F.busy
+	}), W("trash", () => {
+		F.confirm = "delete", $metrix.invalidate();
+	}, {
+		tooltip: H("删除邮箱", "Delete inbox"),
+		disabled: !F.session || F.busy || !F.active
+	}), W("external", () => $metrix.openURL("https://tempmail.best"), { tooltip: H("打开官网", "Open website") }));
+}
+function se() {
+	let e = F.session, t = J(), n = Y(t), i = ae(), a = H("复制邮箱地址", "Copy email address");
+	return c("Column", { tw: "px-4 pb-3 gap-2.5 shrink-0" }, c("ButtonBase", {
+		label: a,
+		tooltip: a,
+		radius: 10,
+		tw: "flex-row items-center gap-3 px-3.5 py-2 w-full min-w-0 rounded-xl bg-surface border border-border cursor-pointer hover:bg-surfaceHover active:bg-surfacePressed",
+		onClick: () => void y(e.email, F.lang)
+	}, l(e.email, {
+		tw: "flex-1 min-w-0 font-mono text-[14.5px] font-medium truncate text-text",
+		tooltip: e.email
+	}), c("Box", {
+		width: 28,
+		height: 28,
+		radius: 7,
+		background: I,
+		center: !0,
+		tw: "shrink-0"
+	}, f("copy", 14, "#ffffff"))), c("Box", {
+		height: 4,
+		radius: 2,
+		background: "border",
+		fillWidth: !0
+	}, c("Box", {
+		absolute: !0,
+		top: 0,
+		left: 0,
+		height: 4,
+		radius: 2,
+		widthPercent: Math.max(0, Math.min(100, t * 100)),
+		background: n
+	})), i ? c("Row", {
+		background: L,
+		borderWidth: 1,
+		borderColor: R,
+		radius: 10,
+		tw: "items-center gap-3 px-3.5 py-2 min-w-0"
+	}, f("key", 14, I), l(i.code, { tw: `font-mono text-[20px] font-semibold tabular-nums shrink-0 text-[${I}]` }), l(`${i.message.from?.name || i.message.from?.address || "—"} · ${r(Date.parse(i.message.date), F.lang)}`, { tw: "flex-1 min-w-0 text-[11px] truncate text-textMuted" }), c("ButtonBase", {
+		label: `${H("复制验证码", "Copy code")} ${i.code}`,
+		background: I,
+		radius: 7,
+		tw: "px-3 py-1.5 shrink-0 cursor-pointer",
+		onClick: () => void y(i.code, F.lang)
+	}, l(H("复制", "Copy"), { tw: "text-[11.5px] font-semibold text-[#ffffff]" }))) : null);
+}
+function ce(e) {
+	let t = !F.readIds.has(e.id), n = F.selectedId === e.id;
+	return c("ButtonBase", {
+		key: e.id,
+		label: e.subject || H("无主题", "No subject"),
+		fontWeight: 400,
+		tw: `flex-row items-center gap-3 px-4 py-2.5 min-w-0 cursor-pointer ${n ? "bg-surfacePressed" : "hover:bg-surfaceHover active:bg-surfacePressed"}`,
+		onClick: () => void F.readMessage(e.id)
+	}, c("Column", { tw: "flex-1 min-w-0 gap-0.5" }, c("Row", { tw: "items-center gap-1.5" }, t ? c("Box", {
+		width: 6,
+		height: 6,
+		radius: 3,
+		background: I,
+		tw: "shrink-0"
+	}) : null, l(e.from?.name || e.from?.address || "—", { tw: "flex-1 text-[11px] truncate text-textMuted" }), l(r(Date.parse(e.date), F.lang), { tw: "text-[11px] shrink-0 text-textMuted" })), l(e.subject || H("无主题", "No subject"), { tw: `text-[12.5px] truncate text-text ${t ? "font-semibold" : "font-medium"}` }), l(e.preview, { tw: "text-[11px] line-clamp-2 text-textMuted" })));
+}
+function X(e) {
+	let t = Date.parse(e);
+	return Number.isFinite(t) ? a(t, F.lang) : e;
+}
+function le() {
+	if (!F.detail) return c("Column", { tw: "flex-1 items-center justify-center" }, l(F.detailError || (F.detailLoading ? H("读取中…", "Loading…") : H("选择邮件查看正文", "Select a message")), { tw: `text-[12px] ${F.detailError ? `text-[${z}]` : "text-textMuted"}` }));
+	let e = Math.ceil(F.body.length / U);
+	return c("Column", { tw: "flex-1 min-w-0 min-h-0 gap-2.5 px-4 pt-3" }, c("Row", { tw: "items-start gap-2 shrink-0" }, c("Column", { tw: "flex-1 min-w-0 gap-0.5" }, l(F.detail.subject || H("无主题", "No subject"), { tw: "text-[15px] font-semibold leading-snug text-text" }), l(`${F.detail.from?.address || F.detail.from?.name || "—"} · ${X(F.detail.date)}`, { tw: "text-[11px] truncate text-textMuted" })), W("copy", () => void y(F.body, F.lang), { tooltip: H("复制正文", "Copy message") })), F.candidateCodes.length ? c("Row", { tw: "gap-2 shrink-0" }, ...F.candidateCodes.map((e) => c("ButtonBase", {
+		key: e,
+		label: `${H("复制验证码", "Copy code")} ${e}`,
+		background: L,
+		borderWidth: 1,
+		borderColor: R,
+		radius: 7,
+		tw: "px-2.5 py-1 shrink-0 cursor-pointer",
+		onClick: () => void y(e, F.lang)
+	}, l(e, { tw: `font-mono text-[12px] font-semibold text-[${I}]` })))) : null, F.detailError ? l(F.detailError, { tw: `text-[11px] shrink-0 text-[${z}]` }) : null, c("Scroll", { tw: "flex-1 min-h-0" }, l(M(F.body, F.bodyPage) || H("空正文", "Empty message"), {
+		wrap: !0,
+		tw: "text-[13px] leading-relaxed text-text"
+	})), e > 1 ? c("Row", { tw: "items-center gap-2 pb-2.5 shrink-0" }, W("prev", () => {
+		F.bodyPage--, $metrix.invalidate();
+	}, {
+		tooltip: H("上一页", "Previous page"),
+		disabled: F.bodyPage === 0
+	}), l(`${F.bodyPage + 1} / ${e}`, { tw: "flex-1 text-center text-[11px] text-textMuted" }), W("next", () => {
+		F.bodyPage++, $metrix.invalidate();
+	}, {
+		tooltip: H("下一页", "Next page"),
+		disabled: (F.bodyPage + 1) * U >= F.body.length
+	})) : null);
+}
+function ue(e) {
+	return c("Row", { tw: "flex-1 min-h-0 items-stretch" }, c("Column", {
+		width: e ? 220 : 260,
+		tw: "min-h-0 shrink-0 bg-surface"
+	}, c("Scroll", { tw: "flex-1 min-h-0" }, c("Column", { tw: "pb-2" }, ...F.messages.length ? F.messages.map(ce) : [l(F.loading ? H("读取中…", "Loading…") : H("等待来信，收到后会自动出现", "Waiting for mail; it appears here automatically"), { tw: "px-4 py-10 text-[12px] text-center text-textMuted" })]))), c("Box", { tw: "w-px shrink-0 bg-border" }), le());
+}
+function de() {
+	let e = q[F.phase], t = !F.active || F.busy, n = H("创建邮箱", "Create inbox");
+	return c("Column", { tw: "flex-1 min-h-0 items-center justify-center gap-5 px-8 pb-6" }, c("Column", { tw: "items-center justify-center gap-2.5" }, V(40), l(F.phase === "expired" ? H("邮箱已到期", "Inbox expired") : H("需要一个临时邮箱？", "Need a throwaway address?"), { tw: "text-[15px] font-semibold text-center text-text" }), l(H("地址在有效期内只收件，验证码会显示在最上方，到期后自动停止。", "The address only receives mail; codes appear at the top. It stops when it expires."), { tw: "text-[12px] text-center leading-snug text-textMuted" })), c("Row", { tw: "items-center gap-3" }, G(), e ? ["preparing", "computing"].includes(F.phase) ? c("Button", {
+		text: H("取消", "Cancel"),
+		onClick: () => F.cancelCreate()
+	}) : null : c("ButtonBase", {
+		label: n,
+		background: "text",
+		radius: 8,
+		disabled: t,
+		tw: `px-4 py-2 shrink-0 ${t ? "opacity-40" : "cursor-pointer"}`,
+		...t ? {} : { onClick: () => void F.create() }
+	}, l(n, { tw: "text-[12.5px] font-semibold text-background" }))), F.phase === "computing" ? c("Box", {
+		width: 240,
+		height: 4,
+		radius: 2,
+		background: "border"
+	}, c("Box", {
+		absolute: !0,
+		top: 0,
+		left: 0,
+		height: 4,
+		radius: 2,
+		widthPercent: Math.max(0, Math.min(100, F.progress * 100)),
+		background: I
+	})) : null);
+}
+function fe(e = 720) {
+	return c("Column", {
+		preferredWidth: 720,
+		preferredHeight: 560,
+		safeArea: !0,
+		tw: "size-full min-w-0 min-h-0 bg-background text-text"
+	}, oe(), F.phase === "save-error" ? c("Row", { tw: "px-4 pb-2" }, c("Button", {
+		text: H("重试保存会话", "Retry saving session"),
+		onClick: () => void F.retrySave()
+	})) : null, ...F.session ? [
+		se(),
+		c("Box", { tw: "w-full h-px bg-border shrink-0" }),
+		ue(e < 650),
+		c("Box", { tw: "w-full h-px bg-border shrink-0" }),
+		c("Row", { tw: "items-center gap-3 px-4 py-2 shrink-0 bg-surface" }, G(), c("Spacer"), c("Button", {
+			text: H("换新邮箱", "New inbox"),
+			disabled: F.busy || F.phase === "save-error" || !F.active,
+			onClick: () => {
+				F.confirm = "replace", $metrix.invalidate();
+			}
+		}))
+	] : [c("Box", { tw: "w-full h-px bg-border shrink-0" }), de()], c("AlertDialog", {
+		open: !!F.confirm,
+		title: F.confirm === "replace" ? H("换新邮箱？", "Replace inbox?") : H("删除当前邮箱？", "Delete inbox?"),
+		message: H("当前地址与邮件将无法继续使用。", "The current address and messages will no longer be available."),
+		buttons: [H("取消", "Cancel"), F.confirm === "replace" ? H("换新", "Replace") : H("删除", "Delete")],
+		onAction: (e) => {
+			e === 1 ? F.confirmAction() : (F.confirm = "", $metrix.invalidate());
+		},
+		onDismiss: () => {
+			F.confirm = "", $metrix.invalidate();
+		}
+	}));
+}
+// src/index.ts
+async function Z(e) {
+	F.lang = t(e), F.notify = e.inputs.notify !== !1, F.restore(), await F.refresh();
+}
+function Q(e) {
+	return F.lang = t(e), F.restore(), {
+		tray: {
+			icon: p("mail", "currentColor"),
+			title: F.unread ? String(F.unread) : "",
+			tooltip: "TempMail.Best",
+			error: F.error || void 0
+		},
+		panel: fe(e.viewport?.width)
+	};
+}
+function $(e, t) {
+	e === "lifecycle" && (t?.type === "start" && F.activate(), t?.type === "stop" && F.stop(), t?.type === "expand" && F.setExpanded(!0), t?.type === "collapse" && F.setExpanded(!1));
+}
+var pe = {
+	scheduled: Z,
+	render: Q,
+	event: $
+};
+export { pe as default, $ as event, Q as render, Z as scheduled };
+]]></script>
+</bar>

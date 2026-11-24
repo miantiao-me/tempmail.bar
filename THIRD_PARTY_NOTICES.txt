@@ -1,0 +1,2 @@
+Icons from Remix Icon, published in @iconify-json/ri 1.2.10 under Apache-2.0.
+https://github.com/cyberalien/RemixIcon/blob/master/License

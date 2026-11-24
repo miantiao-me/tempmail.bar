@@ -1,0 +1,22 @@
+{
+  "name": "tempmail-bar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Create a temporary TempMail.Best inbox and copy verification codes in Metrix.Bar.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vp build --watch",
+    "build": "vp build",
+    "check": "vp check",
+    "test": "vp test"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "vite-plus": "1.6.0"
+  },
+  "engines": {
+    "node": "^24.22.2"
+  },
+  "packageManager": "pnpm@12.21.0"
+}
