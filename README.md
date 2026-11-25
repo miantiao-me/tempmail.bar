@@ -22,11 +22,11 @@ Create a 10-minute or 1-hour disposable [TempMail.Best](https://tempmail.best) i
 
 ## Settings
 
-| Setting             | Default | What it controls                                               |
-| ------------------- | ------- | -------------------------------------------------------------- |
-| **Language**        | English | Display language (`English`, `简体中文`)                       |
-| **Mailbox session** | _Auto_  | Managed automatically in your OS Keychain (no manual input)    |
-| **New mail alerts** | On      | Desktop notifications on new mail with detected codes in title |
+| Setting             | Default           | What it controls                                                                         |
+| ------------------- | ----------------- | ---------------------------------------------------------------------------------------- |
+| **Language**        | Follow Metrix.Bar | Follow the app, English, or Simplified Chinese. Restart after changing the app language. |
+| **Mailbox session** | _Auto_            | Managed automatically in your OS Keychain (no manual input)                              |
+| **New mail alerts** | On                | Desktop notifications on new mail with detected codes in title                           |
 
 ## Permissions & Limits
 

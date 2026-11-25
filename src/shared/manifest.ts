@@ -7,7 +7,7 @@ export interface BarInput {
   help?: string;
   required?: boolean;
   zh?: { label?: string; help?: string; placeholder?: string };
-  options?: { value: string; label: string }[];
+  options?: { value: string; label: string; zh?: string }[];
 }
 
 export interface BarManifest {
@@ -116,10 +116,12 @@ export function renderBar(manifest: BarManifest, script: string): string {
       const locale = Object.entries(input.zh ?? {})
         .map(([key, value]) => `${key}="${escapeAttribute(value)}"`)
         .join(" ");
-      const options = (input.options ?? []).map(
-        (option) =>
-          `      <option value="${escapeAttribute(option.value)}" label="${escapeAttribute(option.label)}" />`,
-      );
+      const options = (input.options ?? []).map((option) => {
+        const attrs = `value="${escapeAttribute(option.value)}" label="${escapeAttribute(option.label)}"`;
+        return option.zh
+          ? `      <option ${attrs}><locale lang="zh-Hans" label="${escapeAttribute(option.zh)}" /></option>`
+          : `      <option ${attrs} />`;
+      });
       if (!locale && options.length === 0) return `    <input ${attrs} />`;
       const lines = [`    <input ${attrs}>`];
       if (locale) lines.push(`      <locale lang="zh-Hans" ${locale} />`);
@@ -153,8 +155,9 @@ export const languageInput: BarInput = {
   type: "select",
   label: "Language",
   zh: { label: "语言" },
-  default: "en",
+  default: "auto",
   options: [
+    { value: "auto", label: "Follow Metrix.Bar", zh: "跟随 Metrix.Bar" },
     { value: "en", label: "English" },
     { value: "zh", label: "简体中文" },
   ],

@@ -1,4 +1,3 @@
-import { ICON_BODIES } from "./shared/icons.ts";
 import { h, Icon, type VNode } from "./shared/kit.ts";
 
 // Brand & semantic accents aligned with tempmail.best/DESIGN.md (Nova Mail Console).
@@ -42,12 +41,15 @@ export function brandMark(size = 28): VNode {
 }
 
 // Color SVG data URI for manifest metadata (rendered as an image, not a monochrome mask).
+// White mail path from Remix Icon (Apache-2.0).
+const MAIL_SVG_BODY =
+  '<path fill="#ffffff" d="M3 3h18a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1m17 4.238l-7.928 7.1L4 7.216V19h16zM4.511 5l7.55 6.662L19.502 5z"/>';
+
 export function brandIconUri(): string {
-  const mail = ICON_BODIES.mail.replaceAll("currentColor", "#ffffff");
   const svg =
     '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">' +
     '<rect x="1" y="1" width="22" height="22" rx="6" fill="#09090b" stroke="#27272a" stroke-width="1"/>' +
-    `<g transform="translate(5 5) scale(0.583)">${mail}</g>` +
+    `<g transform="translate(5 5) scale(0.583)">${MAIL_SVG_BODY}</g>` +
     `<circle cx="19.5" cy="19.5" r="3" fill="${MAIL_ACCENT}" stroke="#09090b" stroke-width="1.5"/>` +
     "</svg>";
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;

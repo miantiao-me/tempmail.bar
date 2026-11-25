@@ -40,7 +40,7 @@ const manifest: BarManifest = {
       zh: { label: "新邮件通知", help: "收到新邮件时提醒，识别出的验证码直接显示在通知里" },
     },
   ],
-  apis: ["shell", "clipboard", "localStorage", "crypto", "auth", "notification"],
+  apis: ["app", "shell", "clipboard", "localStorage", "crypto", "auth", "notification"],
   docs: `Create a 10-minute or 1-hour temporary inbox from your menu bar — receive-only, with no API key required.
 
 How to use

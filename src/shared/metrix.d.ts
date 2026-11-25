@@ -41,6 +41,8 @@ declare module "cloudflare:sockets" {
 declare const $metrix: {
   readonly appVersion: string;
   readonly timeZone: string;
+  caniuse(name: string): Promise<boolean>;
+  system(command: "app.locale"): Promise<string>;
   invalidate(): void;
   schedule(delayMs: number | null): void;
   log(...args: unknown[]): void;

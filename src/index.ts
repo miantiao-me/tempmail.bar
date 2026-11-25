@@ -1,4 +1,5 @@
-import { dataIcon, langOf, type Env } from "./shared/kit.ts";
+import { initLanguage } from "./shared/lang.ts";
+import { langOf, type Env } from "./shared/kit.ts";
 import { model } from "./state.ts";
 import { view } from "./views.ts";
 export async function scheduled(env: Env): Promise<void> {
@@ -12,7 +13,7 @@ export function render(env: Env) {
   model.restore();
   return {
     tray: {
-      icon: dataIcon("mail", "currentColor"),
+      icon: "ri:mail-line",
       title: model.unread ? String(model.unread) : "",
       tooltip: "TempMail.Best",
       error: model.error || undefined,
@@ -20,9 +21,12 @@ export function render(env: Env) {
     panel: view(env.viewport?.width),
   };
 }
-export function event(name: string, payload?: { type?: string }): void {
+export async function event(name: string, payload?: { type?: string }): Promise<void> {
   if (name !== "lifecycle") return;
-  if (payload?.type === "start") model.activate();
+  if (payload?.type === "start") {
+    await initLanguage();
+    model.activate();
+  }
   if (payload?.type === "stop") model.stop();
   if (payload?.type === "expand") model.setExpanded(true);
   if (payload?.type === "collapse") model.setExpanded(false);
